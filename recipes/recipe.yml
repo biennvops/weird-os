@@ -21,11 +21,10 @@ modules:
   - type: script
     scripts:
       - manuallyinstalljust.sh
+      - install-trivalent.sh
 
-  - type: common
-    configurations:
-      - driver-packages
-      - niri-packages
-      - app-packages
+  - from-file: common/app-packages.yml
+  - from-file: common/driver-packages.yml
+  - from-file: common/niri-packages.yml
 
   - type: signing
