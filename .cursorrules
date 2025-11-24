@@ -1,0 +1,258 @@
+# weird-os - BlueBuild Custom OS Image
+
+## Project Overview
+
+This repository contains a BlueBuild configuration for creating a custom Fedora Atomic Desktop image based on Universal Blue's Silverblue. BlueBuild is a declarative system for building OCI (container) images for immutable Linux distributions.
+
+**Base Image:** `ghcr.io/ublue-os/silverblue-main`  
+**Fedora Version:** 42  
+**Image Registry:** `ghcr.io/biennvops/weird-os`  
+**License:** Apache 2.0
+
+## Repository Structure
+
+```
+.
+├── .github/
+│   ├── workflows/
+│   │   └── build.yml          # CI/CD pipeline for building the OS image
+│   ├── CODEOWNERS             # Repository ownership configuration
+│   └── dependabot.yml         # Automated dependency updates
+├── files/
+│   ├── scripts/
+│   │   └── example.sh         # Example build script template
+│   └── system/
+│       ├── etc/               # System configuration files (copied to /etc)
+│       └── usr/               # User space files (copied to /usr)
+├── modules/                   # Custom BlueBuild modules (currently empty)
+├── recipes/
+│   └── recipe.yml            # Main BlueBuild recipe configuration
+├── cosign.pub                # Public key for image signature verification
+├── LICENSE                   # Apache 2.0 license
+└── README.md                 # Installation and usage documentation
+```
+
+## Key Concepts
+
+### BlueBuild Architecture
+- **Recipe-based:** Configuration is defined declaratively in `recipe.yml`
+- **Module System:** Changes are applied through modules executed in order
+- **Atomic Updates:** Built images are immutable and update atomically
+- **Container-based:** Images are distributed as OCI containers
+
+### Build Process
+1. Starts from base image (Silverblue)
+2. Applies modules sequentially as defined in recipe.yml
+3. Signs the image with cosign
+4. Pushes to GitHub Container Registry
+5. Automated builds run daily at 06:00 UTC
+
+## Working with recipe.yml
+
+### Current Configuration
+
+The main recipe file (`recipes/recipe.yml`) defines:
+
+1. **Files Module:** Copies system configuration files
+   - Source: `files/system/*`
+   - Destination: `/` (root filesystem)
+
+2. **DNF Module:** Package management
+   - Adds COPR repository: `atim/starship`
+   - Installs: `micro`, `starship`
+   - Removes: `firefox`, `firefox-langpacks`
+
+3. **Flatpaks Module:** Flatpak application management
+   - System-level: Firefox, GNOME Loupe
+   - User-level repo configured
+
+4. **Signing Module:** Sets up image verification
+
+### Editing Guidelines
+
+When modifying `recipe.yml`:
+- Always validate against schema: `https://schema.blue-build.org/recipe-v1.json`
+- Module order matters - they execute sequentially
+- Test changes locally before pushing (causes rebuild)
+- Use YAML anchors for repeated configurations
+
+### Common Module Types
+
+- `files`: Copy files into the image
+- `dnf`: Install/remove RPM packages
+- `rpm-ostree`: Low-level ostree operations
+- `default-flatpaks`: Manage Flatpak applications
+- `script`: Run custom shell scripts
+- `signing`: Configure image signing
+- `fonts`: Install fonts
+- `systemd`: Enable/disable services
+
+## File Locations
+
+### System Configuration Files
+Place configuration files in:
+- `files/system/etc/` → copies to `/etc/` in the image
+- `files/system/usr/` → copies to `/usr/` in the image
+
+Files are copied during the `files` module execution.
+
+### Custom Scripts
+Place build-time scripts in:
+- `files/scripts/` → executed during build if called from recipe
+
+Script requirements:
+- Must be executable
+- Should start with `#!/usr/bin/env bash`
+- Must include `set -oue pipefail` for error handling
+- Exit non-zero on failure
+
+## GitHub Actions Workflow
+
+### Build Triggers
+- **Daily:** 06:00 UTC (cron schedule)
+- **Push:** Any commit (except documentation-only changes)
+- **Pull Request:** All PRs
+- **Manual:** Via workflow_dispatch
+
+### Build Configuration
+- Uses `blue-build/github-action@v1.8`
+- Maximizes build space (enabled)
+- Signs images with Sigstore cosign
+- Publishes to GitHub Container Registry
+
+### Secrets Required
+- `SIGNING_SECRET`: Cosign private key for image signing
+
+## Making Changes
+
+### Adding Packages
+To add RPM packages:
+```yaml
+- type: dnf
+  install:
+    packages:
+      - package-name
+```
+
+### Removing Packages
+To remove unwanted packages:
+```yaml
+- type: dnf
+  remove:
+    packages:
+      - package-name
+```
+
+### Adding System Files
+1. Create files in `files/system/` with the desired path structure
+2. Files module automatically copies them during build
+3. Ensure proper permissions before committing
+
+### Adding Build Scripts
+1. Create script in `files/scripts/`
+2. Make executable: `chmod +x files/scripts/scriptname.sh`
+3. Reference in recipe:
+```yaml
+- type: script
+  scripts:
+    - scriptname.sh
+```
+
+### Adding Flatpaks
+```yaml
+- type: default-flatpaks
+  configurations:
+    - notify: true
+      scope: system  # or 'user'
+      install:
+        - app.id.Here
+```
+
+### Adding COPR Repositories
+```yaml
+- type: dnf
+  repos:
+    copr:
+      - username/repo-name
+```
+
+## Testing & Deployment
+
+### Local Testing
+Users can rebase to test builds:
+```bash
+# First time (unsigned)
+rpm-ostree rebase ostree-unverified-registry:ghcr.io/biennvops/weird-os:latest
+
+# After reboot (signed)
+rpm-ostree rebase ostree-image-signed:docker://ghcr.io/biennvops/weird-os:latest
+```
+
+### Verification
+Verify image signatures:
+```bash
+cosign verify --key cosign.pub ghcr.io/biennvops/weird-os
+```
+
+## Best Practices
+
+1. **Minimal Changes:** Keep the image lean - prefer Flatpaks over RPMs when possible
+2. **Documentation:** Update README.md when adding significant features
+3. **Testing:** Test recipe changes in PRs before merging to main
+4. **Security:** Never commit private keys or secrets
+5. **Dependencies:** Let dependabot manage GitHub Actions versions
+6. **Atomic Mindset:** Remember that the OS is immutable - config goes in /etc, not /usr
+
+## Common Tasks
+
+### Adding a New Desktop Environment
+Would require changing the base image or adding packages - be cautious as this significantly changes the system.
+
+### Customizing GNOME Settings
+Use `gsettings` or `dconf` files in `files/system/etc/dconf/`
+
+### Enabling Systemd Services
+```yaml
+- type: systemd
+  system:
+    enabled:
+      - service-name.service
+```
+
+### Installing Kernel Modules
+Use `akmods` or `kmods` modules - requires careful configuration.
+
+## Debugging
+
+### Build Failures
+1. Check GitHub Actions logs
+2. Verify YAML syntax in recipe.yml
+3. Ensure all referenced files exist
+4. Check script exit codes
+
+### Runtime Issues
+1. Check journal: `journalctl -b`
+2. Verify file permissions
+3. Check ostree deployment: `rpm-ostree status`
+4. Roll back if needed: `rpm-ostree rollback`
+
+## Important Notes
+
+- This is an experimental feature of Fedora (OCI native containers)
+- Changes require a full image rebuild (happens automatically on push)
+- Users need to reboot to apply updates
+- Large ISO files cannot be distributed via GitHub (size limits)
+- The `latest` tag always points to the latest build with the specified Fedora version
+
+## Useful Resources
+
+- [BlueBuild Documentation](https://blue-build.org/)
+- [Universal Blue Project](https://universal-blue.org/)
+- [BlueBuild Module Reference](https://blue-build.org/reference/modules/)
+- [rpm-ostree Documentation](https://coreos.github.io/rpm-ostree/)
+- [Fedora Silverblue User Guide](https://docs.fedoraproject.org/en-US/fedora-silverblue/)
+
+## Code Owners
+
+Repository maintained by: @xynydev @fiftydinar
+
