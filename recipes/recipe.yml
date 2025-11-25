@@ -39,5 +39,11 @@ modules:
         # If no repo information is specified, Flathub will be used by default
         install:
           - com.github.tchx84.Flatseal
+  
+  # Remove just
+  - type: dnf
+    remove:
+      packages:
+        - just
 
   - type: signing
