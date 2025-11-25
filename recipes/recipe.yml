@@ -20,7 +20,18 @@ modules:
   - type: dnf
     install:
       packages:
+        # drivers
+        - mesa-dri-drivers
+        # desktop
+        - niri
+        - lxqt-niri-session
+        # apps
+        - foot
+        # dev
         - neovim
+        # utils
+        - btop
+  
   - type: default-flatpaks
     configurations:
       - notify: true # Send notification after install/uninstall is finished (true/false)
