@@ -17,6 +17,11 @@ modules:
       - source: system
         destination: / # copies files/system/* (* means everything inside it) into your image's root folder /
 
+  # Install just manually
+  - type: script
+    scripts:
+      - manuallyinstalljust.sh
+
   - type: dnf
     install:
       packages:
@@ -39,11 +44,5 @@ modules:
         # If no repo information is specified, Flathub will be used by default
         install:
           - com.github.tchx84.Flatseal
-  
-  # Remove just
-  - type: dnf
-    remove:
-      packages:
-        - just
 
   - type: signing
