@@ -1,0 +1,5 @@
+type: dnf
+install:
+  install-weak-deps: false
+  packages:
+    - mesa-dri-drivers

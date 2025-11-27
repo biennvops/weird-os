@@ -22,27 +22,10 @@ modules:
     scripts:
       - manuallyinstalljust.sh
 
-  - type: dnf
-    install:
-      packages:
-        # drivers
-        - mesa-dri-drivers
-        # desktop
-        - niri
-        - lxqt-niri-session
-        # apps
-        - foot
-        # dev
-        - neovim
-        # utils
-        - btop
-  
-  - type: default-flatpaks
+  - type: common
     configurations:
-      - notify: true # Send notification after install/uninstall is finished (true/false)
-        scope: system
-        # If no repo information is specified, Flathub will be used by default
-        install:
-          - com.github.tchx84.Flatseal
+      - driver-packages
+      - niri-packages
+      - app-packages
 
   - type: signing
