@@ -3,4 +3,3 @@ install:
   install-weak-deps: false
   packages:
     - niri
-    - lxqt-niri-session
